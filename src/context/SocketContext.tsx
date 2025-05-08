@@ -4,7 +4,8 @@ import { io, Socket } from 'socket.io-client';
 interface SocketContextType {
   socket: Socket | null;
 }
-const BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://server-food-court.onrender.com';
 
 const SocketContext = createContext<SocketContextType>({ socket: null });
 
@@ -12,10 +13,10 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const socket = useRef<Socket | null>(null);
 
   useEffect(() => {
-    // Connect to Socket.IO server via the Vite proxy
+    // Connect to Socket.IO server
     socket.current = io(BASE_URL, {
       path: '/socket.io',
-      transports: ['websocket', 'polling'], // Allow fallback to polling
+      transports: ['polling'], // Force polling to avoid WebSocket issues on Render
       withCredentials: true,
       reconnection: true,
       reconnectionAttempts: 5,
@@ -37,6 +38,12 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
     const handleConnectError = (error: any) => {
       console.error('Socket.IO connection error:', error);
+      if (error.message) {
+        console.error('Error message:', error.message);
+      }
+      if (error.description) {
+        console.error('Error description:', error.description);
+      }
     };
 
     socket.current.on('connect', handleConnect);
