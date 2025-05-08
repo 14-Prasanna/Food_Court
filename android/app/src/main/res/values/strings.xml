@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Food-Court-Customer-page</string>
+    <string name="title_activity_main">Food-Court-Customer-page</string>
+    <string name="package_name">com.foodcourt.customerpage</string>
+    <string name="custom_url_scheme">com.foodcourt.customerpage</string>
+</resources>
