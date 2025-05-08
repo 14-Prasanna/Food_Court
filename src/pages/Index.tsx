@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Header from '@/components/Header';
 import Hero from '@/components/Hero';
 import TimeSlotSection from '@/components/TimeSlotSection';
@@ -11,20 +11,29 @@ const Index: React.FC = () => {
   const [afternoonItems, setAfternoonItems] = useState<FoodItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [socket, setSocket] = useState<Socket | null>(null);
+  const socketRef = useRef<Socket | null>(null);
 
-  const BASE_URL = import.meta.env.VITE_API_BASE_URL;
+  const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://server-food-court.onrender.com';
+  console.log('VITE_API_BASE_URL:', BASE_URL);
 
   useEffect(() => {
     const newSocket = io(BASE_URL, {
+      path: '/socket.io',
+      transports: ['polling'],
       reconnection: true,
-      transports: ['websocket'],
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
+      withCredentials: true,
     });
 
-    setSocket(newSocket);
+    socketRef.current = newSocket;
 
     newSocket.on('connect', () => {
       console.log('Connected to Socket.IO server');
+    });
+
+    newSocket.on('connect_error', (error) => {
+      console.error('Socket.IO connection error:', error);
     });
 
     newSocket.on('menuItemUpdated', (updatedItem: any) => {
@@ -38,7 +47,7 @@ const Index: React.FC = () => {
         timeSlot: updatedItem.availableTime as "morning" | "afternoon" | "both",
         type: mapCategoryToType(updatedItem.category),
         isActive: updatedItem.isActive,
-        quantity: updatedItem.quantity || 0,
+        quantity: updatedItem.quantity !== undefined ? updatedItem.quantity : 0,
       };
       updateItems(mappedItem);
     });
@@ -70,12 +79,13 @@ const Index: React.FC = () => {
       );
     });
 
-    newSocket.on('disconnect', () => {
-      console.log('Disconnected from Socket.IO server');
+    newSocket.on('disconnect', (reason) => {
+      console.log('Disconnected from Socket.IO server:', reason);
     });
 
     return () => {
       newSocket.disconnect();
+      socketRef.current = null;
     };
   }, []);
 
