@@ -6,12 +6,13 @@ type User = {
   name?: string;
   role: 'admin' | 'customer';
 };
-const BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
+const BASE_URL = "https://server-food-court.onrender.com"; // Hardcoded for consistency
 
 const normalizePhone = (phone: string): string => {
   let normalized = phone.replace(/\s+/g, '');
   if (!normalized.startsWith('+')) {
-    normalized = `+${normalized}`;
+    normalized = `+91${normalized}`; // Add +91 for India
   }
   return normalized;
 };
@@ -51,7 +52,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const response = await fetch(`${BASE_URL}/send-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: 'include', // Ensure credentials are sent
+        credentials: 'include',
         body: JSON.stringify({ phone: normalizedPhone, role }),
       });
 
@@ -74,7 +75,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const response = await fetch(`${BASE_URL}/verify-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: 'include', // Ensure credentials are sent
+        credentials: 'include',
         body: JSON.stringify({ phone: normalizedPhone, otp, name, role }),
       });
 
@@ -86,6 +87,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           setUser(updatedUser);
           localStorage.setItem('user', JSON.stringify(updatedUser));
           toast.success("Logged in successfully");
+        } else {
+          throw new Error("User data not found in response");
         }
       } else {
         throw new Error(result.error || "Invalid OTP");
@@ -100,11 +103,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const checkUser = async (phone: string, role: 'admin' | 'customer') => {
     const normalizedPhone = normalizePhone(phone);
     try {
-      const response = await fetch(`${BASE_URL}/check-user`, {
+      const endpoint = role === 'admin' ? '/admin/check' : '/check-user';
+      const response = await fetch(`${BASE_URL}${endpoint}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: 'include', // Ensure credentials are sent
-        body: JSON.stringify({ phone: normalizedPhone, role }),
+        credentials: 'include',
+        body: JSON.stringify({ phone: normalizedPhone }),
       });
 
       const result = await response.json();
