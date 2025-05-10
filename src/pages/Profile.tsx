@@ -12,7 +12,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL;
+const BASE_URL = "https://server-food-court.onrender.com";
 
 // Helper function to normalize phone number
 const normalizePhone = (phone) => {
