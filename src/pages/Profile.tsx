@@ -11,11 +11,11 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
+import { useToast } from "@/components/ui/use-toast";
 
 const BASE_URL = "https://server-food-court.onrender.com";
 
-// Helper function to normalize phone number
-const normalizePhone = (phone) => {
+const normalizePhone = (phone: string): string => {
   let normalized = phone.replace(/\s+/g, '');
   if (!normalized.startsWith('+')) {
     normalized = `+91${normalized}`;
@@ -26,30 +26,48 @@ const normalizePhone = (phone) => {
 const Profile = () => {
   const { isAuthenticated, user, logout } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [orders, setOrders] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState(null);
-  const [qrCode, setQrCode] = useState(null); // State for QR code (data URL)
-  const [qrError, setQrError] = useState(null); // State for QR code errors
+  const [qrCode, setQrCode] = useState(null);
+  const [qrError, setQrError] = useState(null);
 
   const fetchOrders = useCallback(async () => {
+    if (!user?.phone) {
+      toast({
+        title: "Error",
+        description: "User phone number not found. Please log in again.",
+        variant: "destructive",
+      });
+      setIsLoading(false);
+      return;
+    }
     try {
-      const normalizedPhone = normalizePhone(user?.phone || '');
-      const response = await fetch(`${BASE_URL}orders?phone=${encodeURIComponent(normalizedPhone)}`, {
+      const normalizedPhone = normalizePhone(user.phone);
+      const response = await fetch(`${BASE_URL}/orders?phone=${encodeURIComponent(normalizedPhone)}`, {
         headers: { "Content-Type": "application/json" },
       });
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
       const result = await response.json();
       if (result.status === "success") {
         setOrders(result.orders || []);
       } else {
-        console.error('Fetch orders error:', result.error);
+        throw new Error(result.error || 'Failed to fetch orders');
       }
     } catch (error) {
       console.error('Fetch orders error:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load orders. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setIsLoading(false);
     }
-  }, [user?.phone]);
+  }, [user?.phone, toast]);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -59,21 +77,28 @@ const Profile = () => {
 
     if (user?.phone) {
       fetchOrders();
+    } else {
+      toast({
+        title: "Error",
+        description: "User phone number not found. Please log in again.",
+        variant: "destructive",
+      });
+      setIsLoading(false);
     }
-  }, [isAuthenticated, navigate, user?.phone, fetchOrders]);
+  }, [isAuthenticated, navigate, user?.phone, fetchOrders, toast]);
 
   const handleLogout = () => {
     logout();
     navigate('/');
   };
 
-  const handleViewDetails = (order) => {
+  const handleViewDetails = (order: any) => {
     setSelectedOrder(order);
-    setQrCode(null); // Reset QR code when opening modal
-    setQrError(null); // Reset QR error
+    setQrCode(null);
+    setQrError(null);
   };
 
-  const handleDeleteOrder = async (orderId) => {
+  const handleDeleteOrder = async (orderId: string) => {
     try {
       const response = await fetch(`${BASE_URL}/cancel-order`, {
         method: 'DELETE',
@@ -82,13 +107,22 @@ const Profile = () => {
       });
       const result = await response.json();
       if (result.status === "success") {
-        setOrders((prevOrders) => prevOrders.filter((order) => order.orderId !== orderId));
+        setOrders((prevOrders: any[]) => prevOrders.filter((order) => order.orderId !== orderId));
         setSelectedOrder(null);
+        toast({
+          title: "Success",
+          description: "Order deleted successfully.",
+        });
       } else {
-        console.error('Delete order error:', result.error);
+        throw new Error(result.error || 'Failed to delete order');
       }
     } catch (error) {
       console.error('Delete order error:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete order.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -107,15 +141,14 @@ const Profile = () => {
       });
       const result = await response.json();
       if (result.status === 'success') {
-        setQrCode(result.qrCode); // Set the data URL from the response
+        setQrCode(result.qrCode);
         setQrError(null);
       } else {
-        setQrError(result.error || 'Failed to generate QR code');
-        setQrCode(null);
+        throw new Error(result.error || 'Failed to generate QR code');
       }
     } catch (error) {
       console.error('Fetch QR code error:', error);
-      setQrError('Failed to generate QR code');
+      setQrError(error.message || 'Failed to generate QR code');
       setQrCode(null);
     }
   };
@@ -185,7 +218,7 @@ const Profile = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {orders.map((order) => (
+                {orders.map((order: any) => (
                   <tr key={order.orderId} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{order.orderId || 'N/A'}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -227,11 +260,10 @@ const Profile = () => {
           </div>
         )}
 
-        {/* Modal for Order Details */}
         <Dialog open={!!selectedOrder} onOpenChange={() => setSelectedOrder(null)}>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>Order Details - {selectedOrder?.orderId}</DialogTitle>
+              <DialogTitle>Order Details - {(selectedOrder as any)?.orderId}</DialogTitle>
               <DialogDescription>
                 View the items and details of your order.
               </DialogDescription>
@@ -239,28 +271,28 @@ const Profile = () => {
             {selectedOrder && (
               <div className="space-y-4">
                 <div>
-                  <p><strong>Student Name:</strong> {selectedOrder.studentName}</p>
-                  <p><strong>Email:</strong> {selectedOrder.studentEmail}</p>
-                  <p><strong>Phone:</strong> {selectedOrder.studentPhone}</p>
-                  <p><strong>Payment Method:</strong> {selectedOrder.paymentMethod}</p>
-                  <p><strong>Total Amount:</strong> {formatCurrency(selectedOrder.totalAmount)}</p>
-                  <p><strong>Status:</strong> {selectedOrder.status}</p>
-                  <p><strong>Date:</strong> {new Date(selectedOrder.createdAt).toLocaleString()}</p>
+                  <p><strong>Student Name:</strong> {(selectedOrder as any).studentName}</p>
+                  <p><strong>Email:</strong> {(selectedOrder as any).studentEmail}</p>
+                  <p><strong>Phone:</strong> {(selectedOrder as any).studentPhone}</p>
+                  <p><strong>Payment Method:</strong> {(selectedOrder as any).paymentMethod}</p>
+                  <p><strong>Total Amount:</strong> {formatCurrency((selectedOrder as any).totalAmount)}</p>
+                  <p><strong>Status:</strong> {(selectedOrder as any).status}</p>
+                  <p><strong>Date:</strong> {new Date((selectedOrder as any).createdAt).toLocaleString()}</p>
                 </div>
                 <div>
                   <h3 className="font-semibold">Items:</h3>
                   <ul className="list-disc pl-5">
-                    {selectedOrder.items.map((item, index) => (
+                    {(selectedOrder as any).items.map((item: any, index: number) => (
                       <li key={index}>
                         {item.name} - {formatCurrency(item.price)} x {item.quantity} ({item.serviceType})
                       </li>
                     ))}
                   </ul>
                 </div>
-                {selectedOrder.status === 'pending' && (
+                {(selectedOrder as any).status === 'pending' && (
                   <Button
                     variant="outline"
-                    onClick={() => handleViewQrCode(selectedOrder.orderId)}
+                    onClick={() => handleViewQrCode((selectedOrder as any).orderId)}
                     disabled={qrCode || qrError}
                   >
                     View QR Code
